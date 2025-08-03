@@ -7,6 +7,8 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
@@ -14,23 +16,23 @@ import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static java.util.stream.Collectors.collectingAndThen;
-import static java.util.stream.Collectors.groupingBy;
+import static java.nio.file.Files.lines;
+import static java.util.stream.Collectors.*;
 
 class CalculateAverage_polo69 {
 
-    record Measurement(String station, float value) {
+    record Measurement(String station, double value) {
         static Measurement of(String value) {
             var s = value.split(";");
             return new Measurement(s[0], Float.parseFloat(s[1]));
         }
     }
 
-    record Evaluation(String station, float min, float mean, float max, long abs_frequency){
+    record Evaluation(String station, double min, double mean, double max, long abs_frequency){
         static BiConsumer<Evaluation, Measurement> accumulator = Evaluation::accumulate;
         static BiConsumer<Evaluation, Evaluation> combiner = Evaluation::combine;
         static Supplier<Evaluation> supplier = Evaluation::Empty;
-        static Evaluation Empty() { return new Evaluation("", 0.0f, 0.0f, 0.0f, 0L); }
+        static Evaluation Empty() { return new Evaluation("", 0.0, 0.0, 0.0, 0L); }
         Evaluation accumulate(Measurement m){
             return new Evaluation( m.station,
                     Math.min( min, m.value ),
@@ -61,12 +63,10 @@ class CalculateAverage_polo69 {
     }
 
     public static void main(String[] args) throws IOException {
-        Instant start = Instant.now();
-        Executors.newSingleThreadExecutor().execute(run1);
-        Instant end = Instant.now();
+        var start = Instant.now();
+        var f = Executors.newSingleThreadExecutor().submit(run2);
+        var end = Instant.now();
         System.out.println("Execution time: " + Duration.between(start, end).toMillis());
-        System.out.println("Press any key to continue...");
-        System.in.read();
     }
     // Measurement reduce(Measurement, BinaryOperator<Measurement>)
     // Optional<Measurement> reduce(BinaryOperator<Measurement>)
@@ -84,6 +84,47 @@ class CalculateAverage_polo69 {
             throw new RuntimeException(e);
         }
     };
+    record Pair<A,B> (A a, B b) { }
+
+    static Runnable run2 = () -> {
+        try ( var stream = lines(Paths.get("measurements.txt"), StandardCharsets.UTF_8) ) {
+            stream.parallel().map(Measurement::of).collect(Collectors.collectingAndThen(
+
+                    Collectors.groupingByConcurrent(
+                            Measurement::station,
+                            Collectors.teeing(
+                                    Collectors.teeing( // Pair<Double, Double>(min, max)
+                                            Collectors.minBy(Comparator.comparingDouble(Measurement::value)), // min
+                                            Collectors.maxBy(Comparator.comparingDouble(Measurement::value)), // max
+                                            (min, max) -> new Pair<>(
+                                                    min.map(Measurement::value).orElse(Double.NaN),
+                                                    max.map(Measurement::value).orElse(Double.NaN)
+                                            )
+                                    ),
+                                    Collectors.teeing( // Pair<Double, Long>(avg, abs)
+                                            Collectors.averagingDouble(Measurement::value), // avg
+                                            Collectors.counting(), // abs
+                                            Pair::new
+                                    ),
+                                    Pair::new
+                            )
+                    ),
+                    map -> map.entrySet().stream().parallel()
+                            .map(entry -> {
+                                var min_max = entry.getValue().a;
+                                var avg_abs = entry.getValue().b;
+                                return new Evaluation(entry.getKey(), min_max.a, min_max.b, avg_abs.a, avg_abs.b);
+                            }).collect(Collectors.toCollection(ArrayList::new)))
+            ).forEach(System.out::println);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    };
+    // numbers.stream().collect(teeing(
+    //  minBy(Integer::compareTo), // The first collector
+    //  maxBy(Integer::compareTo), // The second collector
+    //  (min, max) -> // Receives the result from those collectors and combines them
+    //));
 
     public static Collector<Measurement, ?, ArrayList<Evaluation>> toEvaluations() {
         return collectingAndThen(
