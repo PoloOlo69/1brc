@@ -33,7 +33,7 @@ import static java.nio.file.Files.lines;
 
 class CalculateAverage_polo69 {
 
-    record Measurement(String station, double value) {
+    value record Measurement(String station, double value) {
 
     static Measurement of(String value) {
         var idx = value.indexOf(';');
@@ -100,11 +100,11 @@ class CalculateAverage_polo69 {
         System.out.println(results.get(0));
     }
 
-    record Pair<A,B>(A a, B b){}
+    value record Pair<A,B>(A a, B b){}
 
     static Callable<ArrayList<Evaluation>> run = () -> {
         try ( var stream = lines(Paths.get("measurements.txt"), StandardCharsets.UTF_8) ) {
-            return stream.parallel().map(Measurement::of).collect(Collectors.collectingAndThen(
+            return stream.map(Measurement::of).collect(Collectors.collectingAndThen(
 
                     Collectors.groupingByConcurrent(
                             Measurement::station,
