@@ -1,7 +1,7 @@
 # 1brc in go
 
 It uses Docker with BuildKit plugin to build and [export binary](https://docs.docker.com/engine/reference/commandline/build/#output) binary,
-see [prepare_AlexanderYastrebov.sh](../../../../prepare_AlexanderYastrebov.sh)
+see [prepare_AlexanderYastrebov.sh](../../../../solutions/scripts/prepare_AlexanderYastrebov.sh)
 and [calculate_average_AlexanderYastrebov.sh](../../../../calculate_average_AlexanderYastrebov.sh).
 
 Demo:
