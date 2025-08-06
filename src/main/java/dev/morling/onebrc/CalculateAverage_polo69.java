@@ -126,11 +126,11 @@ class CalculateAverage_polo69 {
                             )
                     ),
 
-                    map -> map.entrySet().stream().parallel()
+                    map -> map.entrySet().stream()
                             .map(entry -> {
                                 var min_max = entry.getValue().a;
                                 var avg_abs = entry.getValue().b;
-                                return new Evaluation(entry.getKey(), min_max.a, min_max.b, avg_abs.a, avg_abs.b);
+                                return new Evaluation(entry.getKey(), min_max.a, avg_abs.a, min_max.b, avg_abs.b);
                             }).collect(Collectors.toCollection(ArrayList::new)))
             );
         } catch (Exception e){throw new RuntimeException(e);}
